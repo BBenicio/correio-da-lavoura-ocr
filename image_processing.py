@@ -30,11 +30,12 @@ def detect_main_body(image, output_path: str = None, temp_folder: str = None):
     x, y, w, h = cv2.boundingRect(cnt)
 
     img_main = image[y:y+h, x:x+w]
-    cv2.imwrite(output_path, img_main)
+    if output_path:
+        cv2.imwrite(output_path, img_main)
 
     return img_main
 
-def detect_columns(image, output_folder: str = None, temp_folder: str = None):
+def detect_columns(image, output_folder: str = None, temp_folder: str = None, verbose: bool = False):
     '''Detect columns of text in an image.
 
     Args:
@@ -81,6 +82,9 @@ def detect_columns(image, output_folder: str = None, temp_folder: str = None):
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     cnts = sorted(cnts, key=lambda x: cv2.boundingRect(x)[0])
     
+    if verbose:
+        print(f'found {len(cnts)} contours, filtering...')
+
     i = 0
     columns = []
     for c in cnts:
@@ -90,7 +94,7 @@ def detect_columns(image, output_folder: str = None, temp_folder: str = None):
             roi = image[y:y+h, x:x+w]
             
             if output_folder: 
-                save_to = os.path.join(f'columns/roi_{i}.png', roi)
+                save_to = os.path.join(output_folder, f'roi_{i}.png')
                 cv2.imwrite(save_to, roi)
             
             column_images.append(roi)
@@ -99,6 +103,10 @@ def detect_columns(image, output_folder: str = None, temp_folder: str = None):
                 cv2.rectangle(boxed_image, (x, y), (x+w, y+h), (36, 255, 12), 2)
 
             i += 1
+        
+    if verbose:
+        print(f'finished filtering, got {len(columns)} columns')
+    
     if temp_folder:
         save_to = os.path.join(temp_folder, 'column_boxes.png')
         cv2.imwrite(save_to, boxed_image)

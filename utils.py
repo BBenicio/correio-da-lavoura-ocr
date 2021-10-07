@@ -34,6 +34,10 @@ def display(im_path: str):
 
 # Pre processing
 
+def get_name(file_path, ext_size=4):
+    last = file_path.replace('\\', '/').split('/')[-1]
+    return last[:-ext_size] if ext_size > 0 else last
+
 import pdf2image
 import glob
 import os
@@ -54,8 +58,6 @@ def convert_pdfs(input_files: 'list[str]' = [], output_folder: str = './tmp', ve
         said folder.
 
     '''
-    def get_name(file_path):
-        return file_path.replace('\\', '/').split('/')[-1][:-4]
 
     for file_path in input_files:
         name = get_name(file_path)
@@ -124,12 +126,12 @@ def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path:
         str: All of the detected texts 
     '''
     for i in range(len(columns_path)):
-        out = os.path.join(temp_folder, f'/columns/{i}.txt')
+        out = os.path.join(temp_folder, f'{i}.txt')
         run_ocr(columns_path[i], out)
 
     result = []
     for i in range(len(columns_path)):
-        text_file = os.path.join(temp_folder, f'/columns/{i}.txt')
+        text_file = os.path.join(temp_folder, f'{i}.txt')
         with open(text_file, encoding='utf-8') as f:
             result.append(f.read())
     result = '\n\n'.join(result)

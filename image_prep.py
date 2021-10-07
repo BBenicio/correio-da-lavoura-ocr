@@ -22,9 +22,9 @@ def grayscale(image, save_to: str = None):
     Returns:
         processed image in cv2 image format
     '''
-    img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    conditional_save((img, save_to))
-    return img
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    conditional_save(image, save_to)
+    return image
 
 def black_and_white(image, threshold: int = 100, maxval: int = 255, save_to: str = None):
     '''Make the image black and white.
@@ -38,9 +38,9 @@ def black_and_white(image, threshold: int = 100, maxval: int = 255, save_to: str
     Returns:
         processed image in cv2 image format
     '''
-    _, img = cv2.threshold(image, threshold, maxval, cv2.THRESH_BINARY)
-    conditional_save((img, save_to))
-    return img
+    _, image = cv2.threshold(image, threshold, maxval, cv2.THRESH_BINARY)
+    conditional_save(image, save_to)
+    return image
 
 def remove_noise(image, kernel_size: 'tuple[int, int]' = (1, 1), dilate_iterations: int = 1, erode_iterations: int = 1, median_blur_k: int = 3, save_to: str = None):
     '''Remove noisy pixels from an image.
@@ -64,7 +64,7 @@ def remove_noise(image, kernel_size: 'tuple[int, int]' = (1, 1), dilate_iteratio
     conditional_save((image, save_to))
     return image
 
-def prepare_image(image, output_path: str = None, temp_folder: str = None, black_and_white: bool= True, remove_noise: bool= False, verbose: bool= False):
+def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool= True, remove_noise: bool= False, verbose: bool= False):
     '''
     Apply selected preparations to an image.
 
@@ -72,14 +72,14 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, black
         image (cv2 image): base image to process
         output_path (str): path to save the final image, does not save if equals None default=None
         temp_folder (str): path to save intermediary images, does not save if equals None default=None
-        black_and_white (bool): flag to convert the image to black and white, default=True
+        binarize (bool): flag to convert the image to black and white, default=True
         remove_noise (bool): flag to remove noise from the image, default=False
         verbose (bool): print extra information to console?
     
     Returns:
         processed image in cv2 image format
     '''
-    if black_and_white:
+    if binarize:
         save_to = os.path.join(temp_folder, 'grayscale.png') if temp_folder else None
         if verbose:
             print('converting to grayscale...', f'saving temp file to "{save_to}"' if save_to else '')
@@ -88,7 +88,7 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, black
         save_to = os.path.join(temp_folder, 'black_and_white.png') if temp_folder else None
         if verbose:
             print('converting to black and white...', f'saving temp file to "{save_to}"' if save_to else '')
-        image = black_and_white(image, save_to)
+        image = black_and_white(image, save_to=save_to)
     
     if remove_noise:
         save_to = os.path.join(temp_folder, 'remove_noise.png') if temp_folder else None
@@ -98,7 +98,7 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, black
     
     if output_path:
         if verbose:
-            print('saving final image to "{output_path}"')
-        cv2.imwrite(image, output_path)
+            print(f'saving final image to "{output_path}"')
+        cv2.imwrite(output_path, image)
     
     return image
