@@ -1,3 +1,4 @@
+import cv2
 from matplotlib import pyplot as plt
 from numpy.lib.function_base import disp
 
@@ -41,6 +42,7 @@ def get_name(file_path, ext_size=4):
 import pdf2image
 import glob
 import os
+from unidecode import unidecode
 
 def convert_pdfs(input_files: 'list[str]' = [], output_folder: str = './tmp', verbose: bool = False):
     '''Convert multiple PDF files into PNG images.
@@ -69,9 +71,15 @@ def convert_pdfs(input_files: 'list[str]' = [], output_folder: str = './tmp', ve
         pdf2image.convert_from_path(file_path, output_folder=output, output_file='page', poppler_path='C:/Misc/poppler-21.09.0/Library/bin', fmt='png')
         
         if verbose:
-            out_files = [ get_name(f) for f in glob.glob(f'{output}/*.png') ]
+            out_files = [ unidecode(get_name(f)) for f in glob.glob(f'{output}/*.png') ]
             print(f'\tconverted {len(out_files)} pages:', ','.join(out_files))
 
+
+def load_image(path: str):
+    image = cv2.imread(path)
+    if image is None or image.size == 0:
+        raise ValueError(f'failed to read image at "{path}, does it exist?"')
+    return image
 
 # Processing
 
