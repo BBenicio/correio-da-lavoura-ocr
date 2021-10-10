@@ -1,5 +1,5 @@
-from numpy.lib.npyio import save
-from utils import display
+from image_prep import conditional_save
+import numpy as np
 import cv2
 import os
 
@@ -112,3 +112,76 @@ def detect_columns(image, output_folder: str = None, temp_folder: str = None, ve
         cv2.imwrite(save_to, boxed_image)
     
     return column_images, columns
+
+
+def crop_margins(image, temp_folder: str = None, output_path: str = None):
+    '''Crop image to margins using line detection.
+
+    Args:
+        image (cv2 image): black and white image to process
+        output_path (str): path to write the output image to, does not save if equals None. default=None
+        temp_folder (str): folder to write the intermediary files to, does not save if equals None. default=None
+
+    Returns:
+        image of the main body (cv2 image)
+    '''
+    blur = cv2.GaussianBlur(image, (5, 5), 0)
+    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (13, 3))
+    erode = cv2.erode(thresh, kernel, iterations=1)
+
+    rho = 1  # distance resolution in pixels of the Hough grid
+    theta = np.pi / 180  # angular resolution in radians of the Hough grid
+    threshold = 7  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 20  # minimum number of pixels making up a line
+    max_line_gap = 500  # maximum gap in pixels between connectable line segments
+    line_image = np.copy(image) * 0  # creating a blank to draw lines on
+
+    # Run Hough on edge detected image
+    # Output "lines" is an array containing endpoints of detected line segments
+    lines = cv2.HoughLinesP(erode, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+
+    grouped_lines = ([], [])
+    for line in lines:
+        for x1,y1,x2,y2 in line:
+            if abs(y2 - y1) > image.shape[0] * 0.5 and abs(y2-y1) < image.shape[0] * 0.9:
+                if x1 < image.shape[1] * 0.5: grouped_lines[0].append((x1, y1, x2, y2))
+                else: grouped_lines[1].append((x1, y1, x2, y2))
+                cv2.line(line_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    
+    save_to = os.path.join(temp_folder, 'margins_lines.png') if temp_folder else None
+    conditional_save(line_image, save_to)
+    
+    lines = []
+    line = None
+    h = 1e10
+    for group in grouped_lines:
+        if len(group) > 0:
+            x = np.mean([np.mean([line[0], line[2]]) for line in group], dtype=int)
+            y1 = np.min([min(line[1], line[3]) for line in group],)
+            y2 = np.max([max(line[1], line[3]) for line in group])
+            lines.append((x, y1, x, y2))
+            if y2 - y1 < h:
+                line = (x, y1, x, y2)
+                h = y2-y1
+    if len(lines) == 0:
+        x1, x2 = 0, image.shape[1]
+        y1, y2 = 0, image.shape[0]
+    elif len(lines) == 1:
+        if lines[0][0] < 0.5 * image.shape[1]:
+            x1, x2 = 0, lines[0][0]
+        else:
+            x1, x2 = lines[0][0], image.shape[1]
+        y1 = min(line[1], line[3])
+        y2 = max(line[1], line[3])
+    else:
+        x1 = min(lines[0][0], lines[1][2])
+        x2 = max(lines[0][0], lines[1][2])
+        y1 = min(line[1], line[3])
+        y2 = max(line[1], line[3])
+    
+    content = image[y1:y2, x1:x2]
+    
+    conditional_save(content, output_path)
+    
+    return content
