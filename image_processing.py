@@ -1,4 +1,4 @@
-from image_prep import conditional_save
+from image_prep import conditional_save, remove_noise
 import numpy as np
 import cv2
 import os
@@ -185,3 +185,67 @@ def crop_margins(image, temp_folder: str = None, output_path: str = None) -> tup
     conditional_save(content, output_path)
     
     return content, (x1, x2, y1, y2)
+
+def crop_background(image, temp_folder: str = None, output_path: str = None) -> tuple:
+    '''Crop image removing background filtering color.
+
+    Args:
+        image (cv2 image): black and white image to process
+        output_path (str): path to write the output image to, does not save if equals None. default=None
+        temp_folder (str): folder to write the intermediary files to, does not save if equals None. default=None
+
+    Returns:
+        tuple: image of the main body (cv2 image); crop coordinates
+    
+    Remarks:
+        reference https://medium.com/featurepreneur/colour-filtering-and-colour-pop-effects-using-opencv-python-3ce7d4576140
+    '''
+    # convert the BGR image to HSV colour space
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    lower_bg = (95, 40, 120)
+    upper_bg = (115, 90, 240)
+
+    # create a mask for green colour using inRange function
+    mask = cv2.inRange(hsv, lower_bg, upper_bg)
+    
+    save_to = os.path.join(temp_folder, 'bg_mask.png') if temp_folder else None
+    conditional_save(mask, save_to)
+
+    no_noise = remove_noise(mask, kernel_size=(50, 50))
+    save_to = os.path.join(temp_folder, 'bg_mask_no_noise.png') if temp_folder else None
+    conditional_save(no_noise, save_to)
+
+    cnts = cv2.findContours(no_noise, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
+    cnt = cnts[-1] # select largest
+    x, y, w, h = cv2.boundingRect(cnt)
+
+    x1 = x
+    y1 = y
+
+    mask = mask[y:y+h, x:x+w]
+    save_to = os.path.join(temp_folder, 'main_mask.png') if temp_folder else None
+    conditional_save(mask, save_to)
+
+    no_noise = remove_noise(mask, kernel_size=(200, 200))
+    save_to = os.path.join(temp_folder, 'mask_no_noise.png') if temp_folder else None
+    conditional_save(no_noise, save_to)
+
+    _, no_noise = cv2.threshold(no_noise, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    cnts = cv2.findContours(no_noise, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
+    cnt = cnts[-1] # select largest
+    x, y, w, h = cv2.boundingRect(cnt)
+
+    x1 += x
+    x2 = x1+w
+    y1 += y
+    y2 = y1+h
+
+    image = image[y1:y2, x1:x2]
+    conditional_save(image, output_path)
+
+    return image, (x1, x2, y1, y2)
