@@ -26,19 +26,20 @@ def grayscale(image, save_to: str = None):
     conditional_save(image, save_to)
     return image
 
-def black_and_white(image, threshold: int = 100, maxval: int = 255, save_to: str = None):
+def black_and_white(image, threshold: int = 100, maxval: int = 255, otsu: bool = True, save_to: str = None):
     '''Make the image black and white.
 
     Args:
         image (cv2 image): base image to convert
         threshold (int): threshold to pass to OpenCV, default=100
         maxval (int): maxval to pass to OpenCV, default=255
+        otsu (bool): whether to use THRESH_OTSU to automatically calculate the threshold. Note this renders the threshold argument useless. default=True
         save_to (str): path to save the image, does not save if it equals None. default=None
 
     Returns:
         processed image in cv2 image format
     '''
-    _, image = cv2.threshold(image, threshold, maxval, cv2.THRESH_BINARY)
+    _, image = cv2.threshold(image, threshold, maxval, cv2.THRESH_BINARY + (cv2.THRESH_OTSU if otsu else 0))
     conditional_save(image, save_to)
     return image
 
@@ -64,7 +65,7 @@ def remove_noise(image, kernel_size: 'tuple[int, int]' = (1, 1), dilate_iteratio
     conditional_save((image, save_to))
     return image
 
-def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool= True, remove_noise: bool= False, verbose: bool= False):
+def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool = True, rotate: bool = True, remove_noise: bool = False, verbose: bool = False):
     '''
     Apply selected preparations to an image.
 
@@ -90,6 +91,13 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, binar
             print('converting to black and white...', f'saving temp file to "{save_to}"' if save_to else '')
         image = black_and_white(image, save_to=save_to)
     
+    if rotate:
+        save_to = os.path.join(temp_folder, 'rotate.png') if temp_folder else None
+        if verbose:
+            print('rotating...', f'saving temp file to "{save_to}"' if save_to else '')
+        image = deskew(image)
+        conditional_save(image, save_to)
+
     if remove_noise:
         save_to = os.path.join(temp_folder, 'remove_noise.png') if temp_folder else None
         if verbose:
@@ -102,3 +110,80 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, binar
         cv2.imwrite(output_path, image)
     
     return image
+
+
+def get_skew_angle(cvImage) -> float:
+    '''Get the angle to which an image is skewed.
+
+    Args:
+        cvImage (cv2 image): image to find the skew angle
+    
+    Returns:
+        float: skew angle in degrees
+    
+    Remarks:
+        https://becominghuman.ai/how-to-automatically-deskew-straighten-a-text-image-using-opencv-a0c30aed83df
+    '''
+    # Prep image, copy, convert to gray scale, blur, and threshold
+    newImage = cvImage.copy()
+    blur = cv2.GaussianBlur(newImage, (9, 9), 0)
+    thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+    # Apply dilate to merge text into meaningful lines/paragraphs.
+    # Use larger kernel on X axis to merge characters into single line, cancelling out any spaces.
+    # But use smaller kernel on Y axis to separate between different blocks of text
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 5))
+    dilate = cv2.dilate(thresh, kernel, iterations=2)
+
+    # Find all contours
+    contours, hierarchy = cv2.findContours(dilate, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key = cv2.contourArea, reverse = True)
+    for c in contours:
+        rect = cv2.boundingRect(c)
+        x,y,w,h = rect
+        cv2.rectangle(newImage,(x,y),(x+w,y+h),(0,255,0),2)
+
+    # Find largest contour and surround in min area box
+    largestContour = contours[0]
+    print (len(contours))
+    minAreaRect = cv2.minAreaRect(largestContour)
+    
+    # Determine the angle. Convert it to the value that was originally used to obtain skewed image
+    angle = minAreaRect[-1]
+    if angle < -45:
+        angle = 90 + angle
+    return -1.0 * angle
+
+
+def rotate_image(cvImage, angle: float):
+    '''Rotate the image around its center.
+    
+    Args:
+        cvImage (cv2 image): image to rotate
+        angle (float): angle to rotate image by
+
+    Returns:
+        cv2 image: rotated image
+    
+    Remarks:
+        https://becominghuman.ai/how-to-automatically-deskew-straighten-a-text-image-using-opencv-a0c30aed83df
+    '''
+    newImage = cvImage.copy()
+    (h, w) = newImage.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    newImage = cv2.warpAffine(newImage, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return newImage
+
+
+def deskew(cvImage):
+    '''Deskew image
+
+    Args:
+        cvImage (cv2 image): image to deskew
+    
+    Returns:
+        cv2 image: image rotated to be upright
+    '''
+    angle = get_skew_angle(cvImage)
+    return rotate_image(cvImage, -1.0 * angle) if angle > -35 and angle < 35 else cvImage
