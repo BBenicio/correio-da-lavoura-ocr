@@ -5,7 +5,7 @@ from unidecode import unidecode
 
 from process_pdfs import convert_pdfs
 from image_prep import prepare_image
-from image_processing import detect_main_body, detect_columns
+from image_processing import crop_margins, detect_columns
 import utils
 
 PROCESS_PDFS = False
@@ -38,7 +38,8 @@ for ed in editions:
         image = prepare_image(image, f'./temp/{ed_name}/{page_name}.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
         
         log('detecting the main body')
-        image = detect_main_body(image, temp_folder=f'./temp/{ed_name}/{page_name}')
+        # image = detect_main_body(image, temp_folder=f'./temp/{ed_name}/{page_name}')
+        image = crop_margins(image, f'./temp/{ed_name}/{page_name}', f'./temp/{ed_name}/{page_name}/main.png')
         
         log('detecting the columns')
         detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
@@ -46,8 +47,11 @@ for ed in editions:
         log('running OCR on the unprocessed page')
         utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', verbose=VERBOSE)
 
+        log('running OCR on the grayscale page')
+        utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', verbose=VERBOSE)
+
         log('running OCR on the processed columns')
-        utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./output/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/processed.txt')
+        utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
 
         log(f'DONE with page "{page_name}"')
     log(f'DONE with edition "{ed_name}"')
