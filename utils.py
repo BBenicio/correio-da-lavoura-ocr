@@ -111,18 +111,18 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
 
     if remove_spaces:
         result = remove_extra_spaces(result)
-        print(f'after space removal, got {len(result)} characters')
+        if verbose: print(f'after space removal, got {len(result)} characters')
     
     if remove_hyphenation:
         result = treat_hyphenation(result)
-        print(f'after hyphenation removal, got {len(result)} characters')
+        if verbose: print(f'after hyphenation removal, got {len(result)} characters')
 
     if output_path:
         with open(output_path, 'w', encoding='utf-8') as f:
-            print(f'writing result to "{output_path}"')
+            if verbose: print(f'writing result to "{output_path}"')
             f.write(result)
 
-def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path: str) -> str:
+def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path: str, verbose: bool = False) -> str:
     '''Detect text from multiple images and append them together
 
     Args:
@@ -135,7 +135,7 @@ def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path:
     '''
     for i in range(len(columns_path)):
         out = os.path.join(temp_folder, f'{i}.txt')
-        run_ocr(columns_path[i], out)
+        run_ocr(columns_path[i], out, verbose=verbose)
 
     result = []
     for i in range(len(columns_path)):
