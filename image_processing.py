@@ -114,7 +114,7 @@ def detect_columns(image, output_folder: str = None, temp_folder: str = None, ve
     return column_images, columns
 
 
-def crop_margins(image, temp_folder: str = None, output_path: str = None):
+def crop_margins(image, temp_folder: str = None, output_path: str = None) -> tuple:
     '''Crop image to margins using line detection.
 
     Args:
@@ -123,7 +123,7 @@ def crop_margins(image, temp_folder: str = None, output_path: str = None):
         temp_folder (str): folder to write the intermediary files to, does not save if equals None. default=None
 
     Returns:
-        image of the main body (cv2 image)
+        tuple: image of the main body (cv2 image); crop coordinates
     '''
     blur = cv2.GaussianBlur(image, (5, 5), 0)
     thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
@@ -184,4 +184,4 @@ def crop_margins(image, temp_folder: str = None, output_path: str = None):
     
     conditional_save(content, output_path)
     
-    return content
+    return content, (x1, x2, y1, y2)

@@ -35,12 +35,15 @@ for ed in editions:
         os.makedirs(f'./output/{ed_name}/{page_name}/columns', exist_ok=True)
 
         log('preparing image')
-        image = prepare_image(image, f'./temp/{ed_name}/{page_name}.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
+        pre_image = prepare_image(image, f'./temp/{ed_name}/pre_{page_name}.png', f'./temp/{ed_name}/{page_name}/pre', verbose=VERBOSE)
         
         log('detecting the main body')
-        # image = detect_main_body(image, temp_folder=f'./temp/{ed_name}/{page_name}')
-        image = crop_margins(image, f'./temp/{ed_name}/{page_name}', f'./temp/{ed_name}/{page_name}/main.png')
-        
+        _, (x1, x2, y1, y2) = crop_margins(pre_image, f'./temp/{ed_name}/{page_name}/pre', f'./temp/{ed_name}/{page_name}/main.png')
+
+        image = image[y1:y2, x1:x2]
+        log('preparing image')
+        image = prepare_image(image, f'./temp/{ed_name}/{page_name}.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
+
         log('detecting the columns')
         detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
 
