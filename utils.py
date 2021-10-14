@@ -86,7 +86,7 @@ def load_image(path: str):
 from PIL import Image
 import pytesseract
 
-def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> str:
+def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> 'tuple[str, float]':
     '''Detect portuguese text from an image using pytesseract.
 
     Load an image from a path and run it through pytesseract to detect text.
@@ -99,13 +99,15 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
         verbose (bool): write extra information to console?
 
     Returns:
-        str: text detected
+        tuple(str, float): text detected and mean confidence score
     '''
     img = Image.open(image_path)
     if verbose:
         print(f'read image from "{image_path}"')
     
-    result = pytesseract.image_to_string(img, lang='por')
+    data = pytesseract.image_to_data(img, lang='por', output_type=pytesseract.Output.DATAFRAME)
+    conf = data['conf'].mean()
+    result = data['text'].astype(str).sum()
     if verbose:
         print(f'detected {len(result)} characters in image')
 
@@ -121,8 +123,10 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
         with open(output_path, 'w', encoding='utf-8') as f:
             if verbose: print(f'writing result to "{output_path}"')
             f.write(result)
+    
+    return result, conf
 
-def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path: str, verbose: bool = False) -> str:
+def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path: str, verbose: bool = False) -> 'tuple[str, float]':
     '''Detect text from multiple images and append them together
 
     Args:
@@ -131,22 +135,26 @@ def run_ocr_on_columns(columns_path: 'list[str]', temp_folder: str, output_path:
         output_path (str): path to a text file to write the final output
 
     Returns:
-        str: All of the detected texts 
+        tuple(str, float): All of the detected texts and mean confidence score
     '''
+    avg_conf = 0
     for i in range(len(columns_path)):
         out = os.path.join(temp_folder, f'{i}.txt')
-        run_ocr(columns_path[i], out, verbose=verbose)
+        _, conf = run_ocr(columns_path[i], out, verbose=verbose)
+        avg_conf += conf
+    avg_conf /= len(columns_path)
 
     result = []
     for i in range(len(columns_path)):
         text_file = os.path.join(temp_folder, f'{i}.txt')
         with open(text_file, encoding='utf-8') as f:
             result.append(f.read())
+
     result = '\n\n'.join(result)
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(result)
     
-    return result
+    return result, avg_conf
 
 # Post processing
 

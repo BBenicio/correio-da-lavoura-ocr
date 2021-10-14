@@ -2,6 +2,7 @@ import glob
 import os
 from unidecode import unidecode
 from tqdm import tqdm
+import pandas as pd
 
 from process_pdfs import convert_pdfs
 from image_prep import prepare_image
@@ -20,6 +21,7 @@ if PROCESS_PDFS:
     log('converting PDFs into PNGs')
     convert_pdfs(glob.glob('./input/raw/*.pdf'), './input/processed', VERBOSE)
 
+confidence_scores = []
 all_files = []
 
 editions = glob.glob('./input/processed/*')
@@ -48,14 +50,17 @@ for ed_name, page_name, page in tqdm(all_files):
     detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
 
     log('running OCR on the unprocessed page')
-    utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', verbose=VERBOSE)
+    _, base = utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', verbose=VERBOSE)
 
     log('running OCR on the grayscale page')
-    utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', verbose=VERBOSE)
+    _, gray = utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', verbose=VERBOSE)
 
     log('running OCR on the processed columns')
-    utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
+    _, processed = utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
+
+    confidence_scores.append({ 'edition': ed_name, 'page': page_name, 'base': base, 'grayscale': gray, 'processed': processed })
 
     log(f'DONE with page "{page_name}" from "{ed_name}"')
 
-count_characters()
+df = pd.DataFrame(confidence_scores)
+df.to_csv('quality.tsv', index=False, sep='\t')
