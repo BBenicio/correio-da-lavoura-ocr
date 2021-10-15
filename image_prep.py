@@ -26,20 +26,19 @@ def grayscale(image, save_to: str = None):
     conditional_save(image, save_to)
     return image
 
-def black_and_white(image, threshold: int = 100, maxval: int = 255, otsu: bool = True, save_to: str = None):
-    '''Make the image black and white.
+def black_and_white(image, maxval: int = 255, block_size: int = 45, save_to: str = None):
+    '''Make the image black and white using adaptive thresholding.
 
     Args:
         image (cv2 image): base image to convert
-        threshold (int): threshold to pass to OpenCV, default=100
         maxval (int): maxval to pass to OpenCV, default=255
-        otsu (bool): whether to use THRESH_OTSU to automatically calculate the threshold. Note this renders the threshold argument useless. default=True
+        block_size (int): size of the block to use when thresholding. Must be odd, default=45
         save_to (str): path to save the image, does not save if it equals None. default=None
 
     Returns:
         processed image in cv2 image format
     '''
-    _, image = cv2.threshold(image, threshold, maxval, cv2.THRESH_BINARY + (cv2.THRESH_OTSU if otsu else 0))
+    image = cv2.adaptiveThreshold(image, maxval, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 45, 10)
     conditional_save(image, save_to)
     return image
 
