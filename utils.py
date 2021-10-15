@@ -107,7 +107,7 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
     
     data = pytesseract.image_to_data(img, lang='por', output_type=pytesseract.Output.DATAFRAME)
     conf = data['conf'].mean()
-    result = data['text'].astype(str).sum()
+    result = data['text'].fillna('').astype(str).sum()
     if verbose:
         print(f'detected {len(result)} characters in image')
 
