@@ -46,8 +46,8 @@ for ed_name, page_name, page in tqdm(all_files):
     log('preparing image')
     image = prepare_image(image, f'./temp/{ed_name}/{page_name}.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
 
-    # log('detecting the columns')
-    # detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
+    log('detecting the columns')
+    detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
 
     log('running OCR on the unprocessed page')
     _, base = utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', verbose=VERBOSE)
@@ -58,10 +58,10 @@ for ed_name, page_name, page in tqdm(all_files):
     log('running OCR on the processed page')
     _, proc = utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', f'./output/{ed_name}/{page_name}/proc.txt', verbose=VERBOSE)
 
-    # log('running OCR on the columns')
-    # _, processed = utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
+    log('running OCR on the columns')
+    _, cols = utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
 
-    confidence_scores.append({ 'edition': ed_name, 'page': page_name, 'base': base, 'grayscale': gray, 'processed': proc })
+    confidence_scores.append({ 'edition': ed_name, 'page': page_name, 'base': base, 'grayscale': gray, 'columns': cols, 'processed': proc })
 
     log(f'DONE with page "{page_name}" from "{ed_name}"')
 
