@@ -216,6 +216,11 @@ def crop_background(image, temp_folder: str = None, output_path: str = None) -> 
     save_to = os.path.join(temp_folder, 'bg_mask_no_noise.png') if temp_folder else None
     conditional_save(no_noise, save_to)
 
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20,20))
+    no_noise = cv2.dilate(no_noise, kernel, iterations=1)
+    save_to = os.path.join(temp_folder, 'bg_mask_dilate.png') if temp_folder else None
+    conditional_save(no_noise, save_to)
+
     cnts = cv2.findContours(no_noise, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
