@@ -1,4 +1,5 @@
-from image_prep import conditional_save, remove_noise
+from image_prep import remove_noise
+from utils import conditional_save
 import numpy as np
 import cv2
 import os

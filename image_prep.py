@@ -1,16 +1,7 @@
 import cv2
 import numpy as np
 import os
-
-def conditional_save(image, save_to: str = None):
-    '''Save an image to disk.
-
-    Args:
-        image (cv2 image): image to save to disk
-        save_to (str): path to save the image to. does not save if equals None. default=None
-    '''
-    if save_to:
-        cv2.imwrite(save_to, image)
+from utils import conditional_save
 
 def grayscale(image, save_to: str = None):
     '''Make the image grayscale.
@@ -61,7 +52,7 @@ def remove_noise(image, kernel_size: 'tuple[int, int]' = (1, 1), dilate_iteratio
     image = cv2.erode(image, kernel, iterations=erode_iterations)
     image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
     image = cv2.medianBlur(image, median_blur_k)
-    conditional_save((image, save_to))
+    conditional_save(image, save_to)
     return image
 
 def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool = True, rotate: bool = True, remove_noise: bool = False, verbose: bool = False):

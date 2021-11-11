@@ -33,6 +33,30 @@ def display(im_path: str):
 
     plt.show()
 
+
+def conditional_save(image, save_to: str = None):
+    '''Save an image to disk.
+
+    Args:
+        image (cv2 image): image to save to disk
+        save_to (str): path to save the image to. does not save if equals None. default=None
+    '''
+    if save_to:
+        cv2.imwrite(save_to, image)
+
+
+def get_conditional_path(filename: str, folder: str = None) -> str:
+    '''Join the filename and the folder if possible
+
+    Args:
+        filename (str): name of the file
+        folder (str): folder to join the file on.
+    
+    Returns:
+        str: path with folder and filename joined, if folder=None returns None
+    '''
+    return os.path.join(folder, filename) if folder else None
+
 # Pre processing
 
 def get_name(file_path, ext_size=4):
