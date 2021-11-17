@@ -1,6 +1,5 @@
 import cv2
 from matplotlib import pyplot as plt
-from numpy.lib.function_base import disp
 
 def display(im_path: str):
     '''Display the image using matplotlib.
@@ -110,7 +109,7 @@ def load_image(path: str):
 from PIL import Image
 import pytesseract
 
-def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> 'tuple[str, float]':
+def run_ocr(image_path: str, output_path: str = None, temp_path: str = None, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> 'tuple[str, float]':
     '''Detect portuguese text from an image using pytesseract.
 
     Load an image from a path and run it through pytesseract to detect text.
@@ -118,6 +117,7 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
     Args:
         image_path (str): path of input image
         output_path (str): path to write text output to, does not save if equals None. default=None
+        temp_folder (str): folder to save the image of the tesseract detected blocks, does not save if equals None. default=None
         remove_spaces (bool): flag to remove extra spaces in post-processing. default=True
         remove_hyphenation (bool): flag to remove hyphenation, joining words in post-processing. default=True
         verbose (bool): write extra information to console?
@@ -136,6 +136,12 @@ def run_ocr(image_path: str, output_path: str = None, remove_spaces: bool = True
     result = data['text'].fillna('').astype(str).sum()
     if verbose:
         print(f'detected {len(result)} characters in image')
+    
+    blocks = data[data['level'] == 3]
+    cvImg = cv2.imread(image_path)
+    for _, block in blocks.iterrows():
+        cv2.rectangle(cvImg, (block['left'], block['top']), (block['left'] + block['width'], block['top'] + block['height']), (0, 255, 0), 2)
+    conditional_save(cvImg, temp_path)
 
     if remove_spaces:
         result = remove_extra_spaces(result)
