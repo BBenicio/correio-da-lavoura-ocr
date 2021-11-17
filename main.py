@@ -6,14 +6,14 @@ from tqdm import tqdm
 import pandas as pd
 
 from process_pdfs import convert_pdfs
-from image_prep import prepare_image
-from image_processing import crop_background, detect_columns
+from image_prep import deskew, prepare_image
+from image_processing import crop_background, crop_to_page, detect_columns
 from evaluate_quality import count_characters
 from mhs_layout_analisys import segment
 import utils
 
 PROCESS_PDFS = False
-DO_OCR = False
+DO_OCR = True
 DO_MHS = True
 VERBOSE = False
 
@@ -48,29 +48,45 @@ for ed_name, page_name, page in tqdm(all_files):
     image, _ = crop_background(image, f'./temp/{ed_name}/{page_name}/', f'./temp/{ed_name}/{page_name}/cropped.png')
 
     log('preparing image')
-    image = prepare_image(image, f'./temp/{ed_name}/{page_name}.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
+    image = prepare_image(image, f'./temp/{ed_name}/{page_name}/prepared.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
+
+    log('cropping page')
+    image, _ = crop_to_page(image, f'./temp/{ed_name}/{page_name}/', f'./temp/{ed_name}/{page_name}/cropped_page.png')
+
+    if DO_MHS:
+        image, _, _ = segment(image, f'./temp/{ed_name}/{page_name}/')
+        image = deskew(image)
+        image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+        utils.conditional_save(image, f'./temp/{ed_name}/{page_name}/rotated_after_mhs.png')
+        utils.conditional_save(image, f'./temp/{ed_name}/{page_name}.png')
 
     if DO_OCR:
         log('detecting the columns')
         detect_columns(image, f'./temp/{ed_name}/{page_name}/columns', f'./temp/{ed_name}/{page_name}/columns_temp', verbose=VERBOSE)
 
         log('running OCR on the unprocessed page')
-        _, base = utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', verbose=VERBOSE)
+        r_base, base = utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', f'./temp/{ed_name}/{page_name}/tess_unproc.png', verbose=VERBOSE)
 
         log('running OCR on the grayscale page')
-        _, gray = utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', verbose=VERBOSE)
+        r_gray, gray = utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', f'./temp/{ed_name}/{page_name}/tess_gray.png', verbose=VERBOSE)
 
         log('running OCR on the processed page')
-        _, proc = utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', f'./output/{ed_name}/{page_name}/proc.txt', verbose=VERBOSE)
+        r_proc, proc = utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', f'./output/{ed_name}/{page_name}/proc.txt', f'./temp/{ed_name}/{page_name}/tess_proc.png', verbose=VERBOSE)
 
-        log('running OCR on the columns')
-        _, cols = utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
+        # log('running OCR on the columns')
+        # r_cols, cols = utils.run_ocr_on_columns(glob.glob(f'./temp/{ed_name}/{page_name}/columns/*.png'), f'./temp/{ed_name}/{page_name}/columns', f'./output/{ed_name}/{page_name}/processed.txt')
 
-        confidence_scores.append({ 'edition': ed_name, 'page': page_name, 'base': base, 'grayscale': gray, 'columns': cols, 'processed': proc })
+        confidence_scores.append({
+            'edition': ed_name,
+            'page': page_name,
+            'base_count': len(r_base),
+            'base_confidence': base,
+            'grayscale_count': len(r_gray),
+            'grayscale_confidence': gray,
+            'processed_count': len(r_proc),
+            'processed_confidence': proc
+        })
     
-    if DO_MHS:
-        inv = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-        segment(image, f'./temp/{ed_name}/{page_name}/')
 
     log(f'DONE with page "{page_name}" from "{ed_name}"')
 
