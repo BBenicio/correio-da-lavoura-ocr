@@ -1,5 +1,5 @@
 from image_prep import remove_noise
-from utils import conditional_save
+from utils import conditional_save, get_conditional_path
 import numpy as np
 import cv2
 import os
@@ -222,19 +222,6 @@ def crop_background(image, temp_folder: str = None, output_path: str = None) -> 
     save_to = os.path.join(temp_folder, 'bg_mask_dilate.png') if temp_folder else None
     conditional_save(no_noise, save_to)
 
-    cnts = cv2.findContours(no_noise, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-    cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
-    cnt = cnts[-1] # select largest
-    x, y, w, h = cv2.boundingRect(cnt)
-
-    x1 = x
-    y1 = y
-
-    mask = mask[y:y+h, x:x+w]
-    save_to = os.path.join(temp_folder, 'main_mask.png') if temp_folder else None
-    conditional_save(mask, save_to)
-
     no_noise = remove_noise(mask, kernel_size=(200, 200))
     save_to = os.path.join(temp_folder, 'mask_no_noise.png') if temp_folder else None
     conditional_save(no_noise, save_to)
@@ -246,12 +233,62 @@ def crop_background(image, temp_folder: str = None, output_path: str = None) -> 
     cnt = cnts[-1] # select largest
     x, y, w, h = cv2.boundingRect(cnt)
 
-    x1 += x
+    x1 = x
     x2 = x1+w
-    y1 += y
+    y1 = y
     y2 = y1+h
 
     image = image[y1:y2, x1:x2]
     conditional_save(image, output_path)
 
     return image, (x1, x2, y1, y2)
+
+
+def crop_to_page(image, temp_folder: str = None, output_path: str = None) -> tuple:
+    '''Crop image to focus only on target page.
+
+    Args:
+        image (cv2 image): black and white image to process
+        output_path (str): path to write the output image to, does not save if equals None. default=None
+        temp_folder (str): folder to write the intermediary files to, does not save if equals None. default=None
+
+    Returns:
+        tuple: image of the main body (cv2 image); crop coordinates
+    '''
+    _, thresh = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    blur = cv2.medianBlur(thresh, 13)
+    conditional_save(blur, get_conditional_path('median_blur.png', temp_folder))
+    
+    rho = 1  # distance resolution in pixels of the Hough grid
+    theta = np.pi / 180  # angular resolution in radians of the Hough grid
+    threshold = 7  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 20  # minimum number of pixels making up a line
+    max_line_gap = 100  # maximum gap in pixels between connectable line segments
+    line_image = blur.copy() * 0  # creating a blank to draw lines on
+
+    # Run Hough on edge detected image
+    # Output "lines" is an array containing endpoints of detected line segments
+    lines = cv2.HoughLinesP(blur, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+
+    xs, ys = [], [] # list of x and y for long lines
+    for line in lines:
+        for x1,y1,x2,y2 in line:
+            if abs(y2 - y1) > line_image.shape[0] * 0.5 or abs(x2-x1) > line_image.shape[1] * 0.5:
+                xs.extend([x1, x2])
+                ys.extend([y1, y2])
+                cv2.line(line_image,(x1,y1),(x2,y2),(255,0,0),5)
+    
+    conditional_save(line_image, get_conditional_path('lines.png', temp_folder))
+    
+    left = int(np.median([x for x in xs if x < thresh.shape[1] * 0.2])) if len(xs) > 0 else 0
+    right = int(np.median([x for x in xs if x > thresh.shape[1] * 0.8])) if len(xs) > 0 else thresh.shape[1]
+    top = int(np.median([y for y in ys if y < thresh.shape[0] * 0.2])) if len(ys) > 0 else 0
+    bottom = int(np.median([y for y in ys if y > thresh.shape[0] * 0.8])) if len(ys) > 0 else thresh.shape[0]
+    
+    cv2.rectangle(line_image, (left,top), (right,bottom), 128, 2)
+    conditional_save(line_image, get_conditional_path('lines_rect.png', line_image))
+    
+    cropped = image[top:bottom, left:right]
+    conditional_save(cropped, output_path)
+    
+    return cropped, (left, right, top, bottom)
