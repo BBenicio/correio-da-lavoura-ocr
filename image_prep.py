@@ -115,34 +115,48 @@ def get_skew_angle(cvImage) -> float:
         https://becominghuman.ai/how-to-automatically-deskew-straighten-a-text-image-using-opencv-a0c30aed83df
     '''
     # Prep image, copy, convert to gray scale, blur, and threshold
-    newImage = cvImage.copy()
-    blur = cv2.GaussianBlur(newImage, (9, 9), 0)
+    blur = cv2.GaussianBlur(cvImage, (9, 9), 0)
     thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
 
     # Apply dilate to merge text into meaningful lines/paragraphs.
     # Use larger kernel on X axis to merge characters into single line, cancelling out any spaces.
     # But use smaller kernel on Y axis to separate between different blocks of text
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 5))
-    dilate = cv2.dilate(thresh, kernel, iterations=2)
+    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 5))
+    # dilate = cv2.dilate(thresh, kernel, iterations=2)
 
     # Find all contours
-    contours, hierarchy = cv2.findContours(dilate, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key = cv2.contourArea, reverse = True)
-    for c in contours:
-        rect = cv2.boundingRect(c)
-        x,y,w,h = rect
-        cv2.rectangle(newImage,(x,y),(x+w,y+h),(0,255,0),2)
+    # contours, _ = cv2.findContours(dilate, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    # contours = sorted(contours, key = cv2.contourArea, reverse = True)
 
     # Find largest contour and surround in min area box
-    largestContour = contours[0]
-    print (len(contours))
-    minAreaRect = cv2.minAreaRect(largestContour)
+    # largestContour = contours[0]
+    # minAreaRect = cv2.minAreaRect(largestContour)
+    angles = np.zeros(len(contours))
+    # org = np.zeros(len(contours))
+    for i in range(len(contours)):
+        minAreaRect = cv2.minAreaRect(contours[i])
+        
+        angles[i] = minAreaRect[-1]# % 90 if minAreaRect[-1] > 0 else minAreaRect[-1] % -90
+        # org[i] = minAreaRect[-1]
+        if angles[i] < 0:
+            angles[i] = 360 + angles[i]
+        angles[i] = angles[i] % 90
+        if angles[i] > 45:
+            angles[i] = -90 + angles[i]
+        angles[i] = -angles[i]
+        # if angles[i] < -45:
+            # angles[i] = 90 + angles[i]
+        # angles[i] = -1.0 * angles[i]
+    # print('', np.mean(org), np.quantile(org, [0, 0.25, 0.5, 0.75, 1]))
+    # print('', np.mean(angles), np.quantile(angles, [0, 0.25, 0.5, 0.75, 1]))
+    return np.median(angles)
     
     # Determine the angle. Convert it to the value that was originally used to obtain skewed image
-    angle = minAreaRect[-1]
-    if angle < -45:
-        angle = 90 + angle
-    return -1.0 * angle
+    # angle = minAreaRect[-1]
+    # if angle < -45:
+    #     angle = 90 + angle
+    # return -1.0 * angle
 
 
 def rotate_image(cvImage, angle: float):
