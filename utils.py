@@ -131,9 +131,13 @@ def run_ocr(image_path: str, output_path: str = None, temp_path: str = None, rem
     
     data = pytesseract.image_to_data(img, lang='por', output_type=pytesseract.Output.DATAFRAME)
     conf = data[data['conf'] > -1]['conf'].mean()
-    data.loc[data['level'] == 5, 'text'] = data.loc[data['level'] == 5, 'text'] + ' '
-    data.loc[data['level'] <= 4, 'text'] = '\n'
-    result = data['text'].fillna('').astype(str).sum()
+    data.loc[data['level'] < 5, 'text'] = '\n'
+    data.loc[data['level'] == 5, 'text'] = data.loc[data['level'] == 5, 'text'].fillna('') + ' '
+    data['page_block_par_num'] = (data['page_num'].astype(str).str.rjust(3,'0') +
+                                   data['block_num'].astype(str).str.rjust(3,'0') +
+                                   data['par_num'].astype(str).str.rjust(3,'0')).astype(int)
+    lines = data.groupby('page_block_par_num')['text'].sum().str.strip() + '\n'
+    result = lines.sum().strip()
     if verbose:
         print(f'detected {len(result)} characters in image')
     
@@ -213,5 +217,5 @@ def treat_hyphenation(text: str) -> str:
     Returns:
         str: text without hyphenation
     '''
-    text = re.sub('-\n', '', text)
+    text = re.sub('- *\n *', '', text)
     return text
