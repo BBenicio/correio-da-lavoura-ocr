@@ -526,8 +526,8 @@ def recursive_filter(region, coords: np.ndarray, rect: np.ndarray, is_text: np.n
 
     i = 0
     for x,y,w,h in CCu[non_text]:
-        x += coords[0]
-        y += coords[1]
+        x -= coords[0]
+        y -= coords[1]
         cv2.rectangle(region, (x, y), (x+w, y+h), 0, -1)
         is_text[is_text][indicies[i]] = False
         i += 1
