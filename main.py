@@ -1,9 +1,9 @@
 import glob
 import os
 import cv2
+import sys
 from unidecode import unidecode
 from tqdm import tqdm
-import pandas as pd
 
 from process_pdfs import convert_pdfs
 from image_prep import deskew, prepare_image
@@ -26,7 +26,11 @@ def log(msg):
 
 if PROCESS_PDFS:
     log('converting PDFs into PNGs')
-    convert_pdfs(glob.glob('./input/raw/*.pdf'), './input/processed', VERBOSE)
+    if len(sys.argv) > 1:
+        os.makedirs('./input/processed', exist_ok=True)
+        convert_pdfs([sys.argv[1], './input/processed'], VERBOSE)
+    else:
+        convert_pdfs(glob.glob('./input/raw/*.pdf'), './input/processed', VERBOSE)
 
 all_files = []
 
