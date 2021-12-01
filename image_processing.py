@@ -286,7 +286,7 @@ def crop_to_page(image, temp_folder: str = None, output_path: str = None) -> tup
     bottom = int(np.median([y for y in ys if y > thresh.shape[0] * 0.8])) if len(ys) > 0 else thresh.shape[0]
     
     cv2.rectangle(line_image, (left,top), (right,bottom), 128, 2)
-    conditional_save(line_image, get_conditional_path('lines_rect.png', line_image))
+    conditional_save(line_image, get_conditional_path('lines_rect.png', temp_folder))
     
     cropped = image[top:bottom, left:right]
     conditional_save(cropped, output_path)
