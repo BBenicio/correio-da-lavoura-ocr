@@ -1,6 +1,5 @@
 import glob
 import os
-import shutil
 import cv2
 import argparse
 from unidecode import unidecode
@@ -13,11 +12,13 @@ from mhs_layout_analisys import segment
 import utils
 
 parser = argparse.ArgumentParser(description='Reconhece jornais históricos Correio da Lavoura.')
+parser.add_argument('--production', '-p', action='store_true', help='flag if is running in productive environment')
 parser.add_argument('--pdf', action='store_true', help='flag if the input is one or more pdf files.')
 parser.add_argument('--mhs', action='store_true', help='flag to use mhs segmentation before running tesseract.')
 parser.add_argument('--verbose', '-v', action='store_true', help='print information messages to console.')
+parser.add_argument('--edition', '-e', type=str, help='only run on the specified edition name')
+parser.add_argument('--output', '-o', type=str, help='directory to store the output in')
 parser.add_argument('input', nargs='*', type=str, help='input files. if flag --pdf is used, files must be PDFs, otherwise PNGs are expected.')
-parser.add_argument('--output', '-o', action='store_conts', const=None, type=str, help='directory to store the output in')
 args = parser.parse_args()
 
 PROCESS_PDFS = args.pdf
@@ -39,11 +40,11 @@ for input_file in args.input:
 os.makedirs('./input/processed', exist_ok=True)
 if PROCESS_PDFS:
     log('converting PDFs into PNGs')
-    convert_pdfs(input_files, './input/processed', VERBOSE)    
+    convert_pdfs(input_files, './input/processed', VERBOSE, is_dev=not args.production)
 
 all_files = []
 
-editions = glob.glob('./input/processed/*')
+editions = [f'./input/processed/{args.edition}'] if args.edition else glob.glob('./input/processed/*')
 for ed in editions:
     ed_name = unidecode(utils.get_name(ed, 0).lower())
     pages = glob.glob(f'{ed}/*.png')
