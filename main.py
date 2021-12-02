@@ -1,36 +1,44 @@
 import glob
 import os
+import shutil
 import cv2
-import sys
+import argparse
 from unidecode import unidecode
 from tqdm import tqdm
 
 from process_pdfs import convert_pdfs
 from image_prep import deskew, prepare_image
-from image_processing import crop_background, crop_to_page, detect_columns
-from evaluate_quality import count_characters
+from image_processing import crop_background, crop_to_page
 from mhs_layout_analisys import segment
 import utils
 
-PROCESS_PDFS = False
+parser = argparse.ArgumentParser(description='Reconhece jornais históricos Correio da Lavoura.')
+parser.add_argument('--pdf', action='store_true', help='flag if the input is one or more pdf files.')
+parser.add_argument('--mhs', action='store_true', help='flag to use mhs segmentation before running tesseract.')
+parser.add_argument('--verbose', '-v', action='store_true', help='print information messages to console.')
+parser.add_argument('input', nargs='*', type=str, help='input files. if flag --pdf is used, files must be PDFs, otherwise PNGs are expected.')
+args = parser.parse_args()
+
+PROCESS_PDFS = args.pdf
 DO_OCR = True
 OCR_BASE = DO_OCR and False
 OCR_GRAY = DO_OCR and False
 OCR_PROCESSED = DO_OCR and True
-DO_MHS = False
-VERBOSE = False
+DO_MHS = args.mhs
+VERBOSE = args.verbose
 
 def log(msg):
     if VERBOSE:
         print(msg)
 
+input_files = []
+for input_file in args.input:
+    input_files.extend(glob.glob(input_file))
+
+os.makedirs('./input/processed', exist_ok=True)
 if PROCESS_PDFS:
     log('converting PDFs into PNGs')
-    if len(sys.argv) > 1:
-        os.makedirs('./input/processed', exist_ok=True)
-        convert_pdfs([sys.argv[1], './input/processed'], VERBOSE)
-    else:
-        convert_pdfs(glob.glob('./input/raw/*.pdf'), './input/processed', VERBOSE)
+    convert_pdfs(input_files, './input/processed', VERBOSE)    
 
 all_files = []
 
@@ -71,15 +79,15 @@ for ed_name, page_name, page in tqdm(all_files):
 
     if OCR_BASE:
         log('running OCR on the unprocessed page')
-        utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.xml', f'./temp/{ed_name}/{page_name}/tess_unproc.png', verbose=VERBOSE)
+        utils.run_ocr(page, f'./output/{ed_name}/{page_name}/base.txt', f'./temp/{ed_name}/{page_name}/tess_unproc.png', verbose=VERBOSE)
 
     if OCR_GRAY:
         log('running OCR on the grayscale page')
-        utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.xml', f'./temp/{ed_name}/{page_name}/tess_gray.png', verbose=VERBOSE)
+        utils.run_ocr(f'./temp/{ed_name}/{page_name}/grayscale.png', f'./output/{ed_name}/{page_name}/gray.txt', f'./temp/{ed_name}/{page_name}/tess_gray.png', verbose=VERBOSE)
 
     if OCR_PROCESSED:
         log('running OCR on the processed page')
-        utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', f'./output/{ed_name}/{page_name}/proc.xml', f'./temp/{ed_name}/{page_name}/tess_proc.png', verbose=VERBOSE)
+        utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', f'./output/{ed_name}/{page_name}/proc.txt', f'./temp/{ed_name}/{page_name}/tess_proc.png', verbose=VERBOSE)
     
 
     log(f'DONE with page "{page_name}" from "{ed_name}"')
