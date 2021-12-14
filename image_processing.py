@@ -1,5 +1,5 @@
 from numpy.lib.function_base import disp
-from image_prep import remove_noise
+from image_prep import remove_noise, get_contour_angle, rotate_image
 from utils import conditional_save, get_conditional_path
 from scipy.signal import find_peaks
 import numpy as np
@@ -322,6 +322,18 @@ def extract_page(image, temp_folder: str = None, output_path: str = None) -> tup
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
     cnt = cnts[-1] # select largest
+
+    #### Straighten the image
+    angle = get_contour_angle(cnt)
+    image = rotate_image(image, -angle)
+    hsv = rotate_image(hsv, -angle)
+    mask = rotate_image(mask, -angle)
+
+    cnts = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cnts = sorted(cnts, key=lambda x: cv2.contourArea(x))
+    cnt = cnts[-1] # select largest
+
     x, y, w, h = cv2.boundingRect(cnt)
 
     img = image[y:y+h, x:x+w]
