@@ -3,6 +3,7 @@ import re
 import glob
 import pandas as pd
 from unidecode import unidecode
+from nltk.metrics.distance import edit_distance
 
 import utils
 
@@ -43,3 +44,37 @@ def count_characters(output_path='quality.tsv'):
         df = df.append(results, ignore_index=True)
 
     df.to_csv(output_path, index=False, sep='\t')
+
+def char_accuracy(ground_truth: str, recognized: str, ignore_accents: bool = True, ignore_newline: bool = True, ignore_symbols: bool = True) -> float:
+    ground_truth = ground_truth.lower()
+    recognized = recognized.lower()
+    if ignore_accents:
+        ground_truth = unidecode(ground_truth)
+        recognized = unidecode(recognized)
+    
+    if ignore_newline:
+        ground_truth = re.sub(r'\n+', ' ', ground_truth)
+        recognized = re.sub(r'\n+', ' ', recognized)
+
+    if ignore_symbols:
+        ground_truth = re.sub(r'[^A-Za-z0-9,.]', '', ground_truth)
+        recognized = re.sub(r'[^A-Za-z0-9,.]', '', recognized)
+
+    m = len(ground_truth)
+    d = edit_distance(ground_truth, recognized)
+    return max(0, (m - d) / m)
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument('--ground-truth', '-gt', required=True)
+    parser.add_argument('--ocr', '-o', required=True)
+    args = parser.parse_args()
+    
+    with open(args.ground_truth, 'r', encoding='utf8') as f:
+        gt = f.read()
+    
+    with open(args.ocr, 'r', encoding='utf8') as f:
+        ocr = f.read()
+    
+    print(char_accuracy(gt, ocr))
