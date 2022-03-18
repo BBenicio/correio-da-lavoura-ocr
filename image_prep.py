@@ -29,33 +29,29 @@ def black_and_white(image, maxval: int = 255, block_size: int = 45, save_to: str
     Returns:
         processed image in cv2 image format
     '''
-    image = cv2.adaptiveThreshold(image, maxval, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 45, 10)
+    image = cv2.adaptiveThreshold(image, maxval, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, block_size, 10)
     conditional_save(image, save_to)
     return image
 
-def remove_noise(image, kernel_size: 'tuple[int, int]' = (1, 1), dilate_iterations: int = 1, erode_iterations: int = 1, median_blur_k: int = 3, save_to: str = None):
-    '''Remove noisy pixels from an image.
+def remove_noise(image, kernel_size: 'tuple[int, int]' = (2, 2), median_blur_k: int = 3, save_to: str = None):
+    '''Remove noisy pixels from an image using morphological closing followed by a median filter.
 
     Args:
         image (cv2 image): base image to process
-        kernel_size (int): kernel_size to pass to OpenCV, default=(1,1)
-        dilate_iterations (int): iterations for the dilation process to pass to OpenCV, default=1
-        erode_iterations (int): iterations for the erosion process to pass to OpenCV, default=1
+        kernel_size (tuple[int, int]): kernel_size to pass to OpenCV, default=(1,1)
         median_blur_k (int): k-size for the medianBlur to passo to OpenCV, default=3
         save_to (str): path to save the image, does not save if it equals None. default=None
 
     Returns:
         processed image in cv2 image format
     '''
-    kernel = np.ones(kernel_size, np.uint8)
-    image = cv2.dilate(image, kernel, iterations=dilate_iterations)
-    image = cv2.erode(image, kernel, iterations=erode_iterations)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
     image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
     image = cv2.medianBlur(image, median_blur_k)
     conditional_save(image, save_to)
     return image
 
-def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool = True, rotate: bool = True, remove_noise: bool = False, verbose: bool = False):
+def prepare_image(image, output_path: str = None, temp_folder: str = None, binarize: bool = True, rotate: bool = True, denoise: bool = False, verbose: bool = False):
     '''
     Apply selected preparations to an image.
 
@@ -88,11 +84,11 @@ def prepare_image(image, output_path: str = None, temp_folder: str = None, binar
         image = deskew(image)
         conditional_save(image, save_to)
 
-    if remove_noise:
+    if denoise:
         save_to = os.path.join(temp_folder, 'remove_noise.png') if temp_folder else None
         if verbose:
             print('removing pixel noise...', f'saving temp file to "{save_to}"' if save_to else '')
-        image = remove_noise(image, save_to)
+        image = remove_noise(image, save_to=save_to)
     
     if output_path:
         if verbose:
