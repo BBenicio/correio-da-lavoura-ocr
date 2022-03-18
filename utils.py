@@ -109,7 +109,7 @@ def load_image(path: str):
 from PIL import Image
 import pytesseract
 
-def run_ocr(image_path: str, output_path: str = None, temp_path: str = None, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> 'tuple[str, float]':
+def run_ocr(image_path: str, output_path: str = None, temp_path: str = None, treat_confidence: bool = True, remove_spaces: bool = True, remove_hyphenation: bool = True, verbose: bool = False) -> 'tuple[str, float]':
     '''Detect portuguese text from an image using pytesseract.
 
     Load an image from a path and run it through pytesseract to detect text.
@@ -131,11 +131,20 @@ def run_ocr(image_path: str, output_path: str = None, temp_path: str = None, rem
     
     data = pytesseract.image_to_data(img, lang='por', output_type=pytesseract.Output.DATAFRAME)
     conf = data[data['conf'] > -1]['conf'].mean()
-    data.loc[data['level'] < 5, 'text'] = '\n'
-    data.loc[data['level'] == 5, 'text'] = data.loc[data['level'] == 5, 'text'].fillna('') + ' '
+    data['text'] = data['text'].fillna('')
+    data['text'] = data['text'].astype(str)
+    data.loc[data['level'] < 4, 'text'] = '\n'
+    data.loc[data['level'] == 5, 'text'] = data.loc[data['level'] == 5, 'text'] + ' '
     data['page_block_par_num'] = (data['page_num'].astype(str).str.rjust(3,'0') +
                                    data['block_num'].astype(str).str.rjust(3,'0') +
                                    data['par_num'].astype(str).str.rjust(3,'0')).astype(int)
+    if treat_confidence:
+        before = data['page_block_par_num'].nunique()
+        data = remove_low_confidence_paragraphs(data)
+        after = data['page_block_par_num'].nunique()
+        if verbose:
+            print(f'confidence based paragraph removal went from {before} to {after} paragraphs')
+    
     lines = data.groupby('page_block_par_num')['text'].sum().str.strip() + '\n'
     result = lines.sum().strip()
     if verbose:
@@ -219,3 +228,12 @@ def treat_hyphenation(text: str) -> str:
     '''
     text = re.sub('- *\n *', '', text)
     return text
+
+import pandas as pd
+def remove_low_confidence_paragraphs(data: pd.DataFrame) -> pd.DataFrame:
+    only_words = data[data['level'] == 5]
+    keep = only_words.groupby('page_block_par_num')['conf'].mean() > 40
+    keep = keep.reset_index()
+    keep = keep.loc[keep['conf'], 'page_block_par_num']
+    
+    return data.loc[data['page_block_par_num'].isin(keep)]
