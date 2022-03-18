@@ -6,7 +6,7 @@ from unidecode import unidecode
 from tqdm import tqdm
 
 from process_pdfs import convert_pdfs
-from image_prep import deskew, prepare_image
+from image_prep import deskew, prepare_image, remove_noise
 from image_processing import extract_page
 from mhs_layout_analisys import segment
 import utils
@@ -26,6 +26,7 @@ DO_OCR = True
 OCR_BASE = DO_OCR and False
 OCR_GRAY = DO_OCR and False
 OCR_PROCESSED = DO_OCR and True
+REMOVE_NOISE = False
 DO_MHS = args.mhs
 VERBOSE = args.verbose
 
@@ -65,7 +66,7 @@ for ed_name, page_name, page in tqdm(all_files):
     image, _ = extract_page(image, f'./temp/{ed_name}/{page_name}/', f'./temp/{ed_name}/{page_name}/cropped.png')
 
     log('preparing image')
-    image = prepare_image(image, f'./temp/{ed_name}/{page_name}/prepared.png', f'./temp/{ed_name}/{page_name}', verbose=VERBOSE)
+    image = prepare_image(image, f'./temp/{ed_name}/{page_name}/prepared.png', f'./temp/{ed_name}/{page_name}', denoise=REMOVE_NOISE, verbose=VERBOSE)
 
 
     if DO_MHS:
@@ -88,7 +89,7 @@ for ed_name, page_name, page in tqdm(all_files):
 
     if OCR_PROCESSED:
         log('running OCR on the processed page')
-        utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', os.path.join(output_path, 'proc.txt'), f'./temp/{ed_name}/{page_name}/tess_proc.png', verbose=VERBOSE)
+        utils.run_ocr(f'./temp/{ed_name}/{page_name}.png', os.path.join(output_path, 'proc.txt'), f'./temp/{ed_name}/{page_name}/tess_proc.png', treat_confidence=True, verbose=VERBOSE)
     
 
     log(f'DONE with page "{page_name}" from "{ed_name}"')
